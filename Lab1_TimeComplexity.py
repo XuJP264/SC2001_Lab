@@ -5,10 +5,11 @@ import time
 import sys
 import matplotlib
 matplotlib.use('Agg')  # 非交互模式，直接保存
-import matplotlib.pyplot as plt
 import os
 import numpy as np
-sys.setrecursionlimit(10000000)  # 例如增加递归深度
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 def arr_generate(min_size, max_size, x):
     times_hybrid = {}
@@ -44,16 +45,11 @@ def visualize(times_hybrid, times_traditional, counters_traditional, counters_hy
     print('visualization begin')
     os.makedirs("plots", exist_ok=True)
 
-    # -----------------------------
-    # (c-i) 固定 S，随 n 变化
-    # -----------------------------
     fixed_S = 16
     ns = sorted(set(n for n, s in times_hybrid.keys() if s == fixed_S))
-
-    # 对大 n 取对数采样，最多 100 个点绘图
     if len(ns) > 100:
         ns_plot = np.logspace(np.log10(ns[0]), np.log10(ns[-1]), 100, dtype=int)
-        ns_plot = [n for n in ns_plot if n in ns]  # 保证 n 在已有数据里
+        ns_plot = [n for n in ns_plot if n in ns]
     else:
         ns_plot = ns
 
@@ -75,12 +71,8 @@ def visualize(times_hybrid, times_traditional, counters_traditional, counters_hy
     plt.savefig("plots/comparisons_vs_n.png")
     plt.close()
 
-    # -----------------------------
-    # (c-ii) 固定 n，随 S 变化
-    # -----------------------------
     fixed_n = max(ns)
     Ss = sorted([s for (n, s) in times_hybrid.keys() if n == fixed_n])
-
     hybrid_count_S = [counters_hybrid[(fixed_n, s)] for s in Ss]
 
     plt.figure()
@@ -96,18 +88,12 @@ def visualize(times_hybrid, times_traditional, counters_traditional, counters_hy
     plt.savefig("plots/comparisons_vs_S.png")
     plt.close()
 
-    # -----------------------------
-    # (c-iii) 不同 n 的最优 S
-    # -----------------------------
     optimal_S_for_n = {}
-    min_count_for_n = {}
-
     for n in ns:
         Ss_n = sorted([s for (nn, s) in times_hybrid.keys() if nn == n])
         counts_n = [counters_hybrid[(n, s)] for s in Ss_n]
         min_index = counts_n.index(min(counts_n))
         optimal_S_for_n[n] = Ss_n[min_index]
-        min_count_for_n[n] = counts_n[min_index]
 
     plt.figure()
     plt.scatter(ns, [optimal_S_for_n[n] for n in ns], color='purple')
@@ -120,9 +106,6 @@ def visualize(times_hybrid, times_traditional, counters_traditional, counters_hy
     plt.savefig("plots/optimal_S_vs_n.png")
     plt.close()
 
-    # -----------------------------
-    # (d) 最大规模 n 的混合 vs 传统归并排序对比
-    # -----------------------------
     largest_n = max(ns)
     best_S = optimal_S_for_n[largest_n]
 
@@ -136,7 +119,6 @@ def visualize(times_hybrid, times_traditional, counters_traditional, counters_hy
     plt.savefig("plots/comparison_max_n.png")
     plt.close()
 
-    # CPU 时间对比
     plt.figure()
     plt.bar(['Traditional MergeSort', f'Hybrid MergeSort S={best_S}'],
             [times_traditional[largest_n], times_hybrid[(largest_n, best_S)]],
@@ -148,6 +130,7 @@ def visualize(times_hybrid, times_traditional, counters_traditional, counters_hy
     plt.close()
 
     print("All plots saved in 'plots' folder.")
+
 if __name__ == "__main__":
     min_size = 1000
     max_size = 10000000
