@@ -1,10 +1,14 @@
 from Lab1_HybridMergeSort import traditional_merge_sort
 from Lab1_HybridMergeSort import hybrid_merge_sort
-import matplotlib.pyplot as plt
 from random import randint
 import time
 import sys
-sys.setrecursionlimit(100000)  # 例如增加递归深度
+import matplotlib
+matplotlib.use('Agg')  # 非交互模式，直接保存
+import matplotlib.pyplot as plt
+import os
+import numpy as np
+sys.setrecursionlimit(10000000)  # 例如增加递归深度
 
 def arr_generate(min_size, max_size, x):
     times_hybrid = {}
@@ -34,73 +38,120 @@ def arr_generate(min_size, max_size, x):
             S *= 2
 
         n *= 10
-        print(f"All sorts completed for array size n={n//100}\n")
+        print(f"All sorts completed for array size n={n//10}\n")
+    return times_hybrid,times_traditional,counters_traditional,counters_hybrid
+def visualize(times_hybrid, times_traditional, counters_traditional, counters_hybrid):
+    print('visualization begin')
+    os.makedirs("plots", exist_ok=True)
 
-    visualize_results(times_hybrid, times_traditional, counters_hybrid, counters_traditional)
-
-def visualize_results(times_hybrid, times_traditional, counters_hybrid, counters_traditional):
+    # -----------------------------
+    # (c-i) 固定 S，随 n 变化
+    # -----------------------------
     fixed_S = 16
     ns = sorted(set(n for n, s in times_hybrid.keys() if s == fixed_S))
-    hybrid_time = [times_hybrid[(n, fixed_S)] for n in ns]
-    traditional_time = [times_traditional[n] for n in ns]
-    hybrid_count = [counters_hybrid[(n, fixed_S)] for n in ns]
-    traditional_count = [counters_traditional[n] for n in ns]
+
+    # 对大 n 取对数采样，最多 100 个点绘图
+    if len(ns) > 100:
+        ns_plot = np.logspace(np.log10(ns[0]), np.log10(ns[-1]), 100, dtype=int)
+        ns_plot = [n for n in ns_plot if n in ns]  # 保证 n 在已有数据里
+    else:
+        ns_plot = ns
+
+    hybrid_count = [counters_hybrid[(n, fixed_S)] for n in ns_plot]
+    traditional_count = [counters_traditional[n] for n in ns_plot]
 
     plt.figure()
-    plt.plot(ns, hybrid_time, marker='o', label=f'Hybrid Time S={fixed_S}')
-    plt.plot(ns, traditional_time, marker='x', label='Traditional Time')
+    plt.scatter(ns_plot, traditional_count, label='Traditional MergeSort', color='blue')
+    plt.scatter(ns_plot, hybrid_count, label=f'Hybrid MergeSort S={fixed_S}', color='red')
+    plt.plot(ns_plot, traditional_count, color='blue', alpha=0.3)
+    plt.plot(ns_plot, hybrid_count, color='red', alpha=0.3)
+    plt.xlabel('Array size n')
+    plt.ylabel('Number of key comparisons')
+    plt.title(f'Key Comparisons vs Array Size (S={fixed_S})')
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel('Input size n (log scale)')
-    plt.ylabel('Time (seconds, log scale)')
-    plt.title(f'Execution Time vs Input Size (S={fixed_S})')
+    plt.grid(True, which="both", ls="--")
     plt.legend()
-    plt.grid(True, which="both", linestyle='--', linewidth=0.5)
-    plt.savefig(f'time_vs_n_S{fixed_S}.png', dpi=300)
+    plt.savefig("plots/comparisons_vs_n.png")
     plt.close()
 
-    plt.figure()
-    plt.plot(ns, hybrid_count, marker='o', label=f'Hybrid Comparisons S={fixed_S}')
-    plt.plot(ns, traditional_count, marker='x', label='Traditional Comparisons')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Input size n (log scale)')
-    plt.ylabel('Key Comparisons (log scale)')
-    plt.title(f'Key Comparisons vs Input Size (S={fixed_S})')
-    plt.legend()
-    plt.grid(True, which="both", linestyle='--', linewidth=0.5)
-    plt.savefig(f'comparisons_vs_n_S{fixed_S}.png', dpi=300)
-    plt.close()
+    # -----------------------------
+    # (c-ii) 固定 n，随 S 变化
+    # -----------------------------
+    fixed_n = max(ns)
+    Ss = sorted([s for (n, s) in times_hybrid.keys() if n == fixed_n])
 
-    fixed_n = max(times_traditional.keys())
-    Ss = sorted(s for n, s in times_hybrid.keys() if n == fixed_n)
-    hybrid_time_S = [times_hybrid[(fixed_n, s)] for s in Ss]
     hybrid_count_S = [counters_hybrid[(fixed_n, s)] for s in Ss]
 
     plt.figure()
-    plt.plot(Ss, hybrid_time_S, marker='o')
+    plt.scatter(Ss, hybrid_count_S, label=f'Hybrid MergeSort n={fixed_n}', color='green')
+    plt.plot(Ss, hybrid_count_S, color='green', alpha=0.3)
+    plt.xlabel('Threshold S')
+    plt.ylabel('Number of key comparisons')
+    plt.title(f'Key Comparisons vs Threshold S (n={fixed_n})')
     plt.xscale('log', base=2)
-    plt.xlabel('Threshold S (log2 scale)')
-    plt.ylabel('Time (seconds)')
-    plt.title(f'Hybrid MergeSort Time vs Threshold S (n={fixed_n})')
-    plt.grid(True, which="both", linestyle='--', linewidth=0.5)
-    plt.savefig(f'time_vs_S_n{fixed_n}.png', dpi=300)
+    plt.yscale('log')
+    plt.grid(True, which="both", ls="--")
+    plt.legend()
+    plt.savefig("plots/comparisons_vs_S.png")
     plt.close()
+
+    # -----------------------------
+    # (c-iii) 不同 n 的最优 S
+    # -----------------------------
+    optimal_S_for_n = {}
+    min_count_for_n = {}
+
+    for n in ns:
+        Ss_n = sorted([s for (nn, s) in times_hybrid.keys() if nn == n])
+        counts_n = [counters_hybrid[(n, s)] for s in Ss_n]
+        min_index = counts_n.index(min(counts_n))
+        optimal_S_for_n[n] = Ss_n[min_index]
+        min_count_for_n[n] = counts_n[min_index]
 
     plt.figure()
-    plt.plot(Ss, hybrid_count_S, marker='o')
-    plt.xscale('log', base=2)
-    plt.xlabel('Threshold S (log2 scale)')
-    plt.ylabel('Key Comparisons')
-    plt.title(f'Hybrid MergeSort Key Comparisons vs Threshold S (n={fixed_n})')
-    plt.grid(True, which="both", linestyle='--', linewidth=0.5)
-    plt.savefig(f'comparisons_vs_S_n{fixed_n}.png', dpi=300)
+    plt.scatter(ns, [optimal_S_for_n[n] for n in ns], color='purple')
+    plt.plot(ns, [optimal_S_for_n[n] for n in ns], color='purple', alpha=0.3)
+    plt.xlabel('Array size n')
+    plt.ylabel('Optimal Threshold S')
+    plt.title('Optimal S vs Array Size')
+    plt.xscale('log')
+    plt.grid(True, which="both", ls="--")
+    plt.savefig("plots/optimal_S_vs_n.png")
     plt.close()
 
+    # -----------------------------
+    # (d) 最大规模 n 的混合 vs 传统归并排序对比
+    # -----------------------------
+    largest_n = max(ns)
+    best_S = optimal_S_for_n[largest_n]
 
+    plt.figure()
+    plt.bar(['Traditional MergeSort', f'Hybrid MergeSort S={best_S}'],
+            [counters_traditional[largest_n], counters_hybrid[(largest_n, best_S)]],
+            color=['skyblue', 'salmon'])
+    plt.ylabel('Number of key comparisons')
+    plt.title(f'Comparison at n={largest_n} with optimal S={best_S}')
+    plt.grid(axis='y', ls='--')
+    plt.savefig("plots/comparison_max_n.png")
+    plt.close()
 
+    # CPU 时间对比
+    plt.figure()
+    plt.bar(['Traditional MergeSort', f'Hybrid MergeSort S={best_S}'],
+            [times_traditional[largest_n], times_hybrid[(largest_n, best_S)]],
+            color=['skyblue', 'salmon'])
+    plt.ylabel('CPU Time (s)')
+    plt.title(f'CPU Time Comparison at n={largest_n} with optimal S={best_S}')
+    plt.grid(axis='y', ls='--')
+    plt.savefig("plots/time_comparison_max_n.png")
+    plt.close()
+
+    print("All plots saved in 'plots' folder.")
 if __name__ == "__main__":
     min_size = 1000
-    max_size = 1000000
-    max_value = 1000000
-    arr_generate(min_size, max_size, max_value)
+    max_size = 10000000
+    max_value = 1000000000
+    th, tt, ct, ch = arr_generate(min_size, max_size, max_value)
+    visualize(th, tt, ct, ch)
+
