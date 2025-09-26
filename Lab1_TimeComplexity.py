@@ -8,21 +8,98 @@ import matplotlib
 matplotlib.use('Agg')  # 非交互模式，直接保存
 import matplotlib.pyplot as plt
 
+def find_optimal_S(times_hybrid, counters_hybrid):
+    """
+    对每个 n，找到最优 S（以平均比较次数为准）。
+    每个 n 下有10个数组 -> 10次实验的optimal S，最后取平均后四舍五入。
+    """
+    ns = sorted(set(n for n, s in times_hybrid.keys()))
+    optimal_S_final = {}
 
+    for n in ns:
+        # 每个 n 的所有 S
+        Ss = sorted([s for (nn, s) in times_hybrid.keys() if nn == n])
+
+        # 每个 n 我们有 repeat 次实验（10个数组 * repeat次），这里求平均
+        counts_n = [counters_hybrid[(n, s)][0] for s in Ss]
+
+        # 找最优 S
+        best_S = Ss[np.argmin(counts_n)]
+        optimal_S_final[n] = best_S
+
+    return optimal_S_final
+
+
+def find_optimal_S_by_multiple_trials(times_hybrid, counters_hybrid, repeat=10):
+    """
+    对每个 n，10 组数组，每组找到最优 S，然后取平均并取整。
+    """
+    ns = sorted(set(n for n, s in times_hybrid.keys()))
+    optimal_S_final = {}
+
+    for n in ns:
+        Ss = sorted([s for (nn, s) in times_hybrid.keys() if nn == n])
+        # 对于每组实验，找到最优 S
+        best_S_trials = []
+        for trial in range(repeat):
+            counts_trial = [counters_hybrid[(n, s)][0] for s in Ss]
+            best_S = Ss[np.argmin(counts_trial)]
+            best_S_trials.append(best_S)
+
+        # 平均并取整
+        avg_S = round(np.mean(best_S_trials))
+        optimal_S_final[n] = avg_S
+
+    return optimal_S_final
+
+
+def plot_optimal_S(optimal_S_final):
+    """绘制 n vs optimal S"""
+    os.makedirs("plots", exist_ok=True)
+
+    ns = sorted(optimal_S_final.keys())
+    Ss = [optimal_S_final[n] for n in ns]
+
+    plt.figure()
+    plt.plot(ns, Ss, marker='o', linestyle='-', color='purple')
+    plt.xscale('log')  # n 很大时用 log 坐标更直观
+    plt.xlabel('Array size n (log scale)')
+    plt.ylabel('Optimal S')
+    plt.title('Optimal Threshold S vs Array Size n')
+    plt.grid(True, ls='--')
+    plt.savefig("plots/optimal_S_vs_n.png")
+    plt.close()
+    print("Optimal S vs n plot saved as plots/optimal_S_vs_n.png")
+
+def generate_test_data(n_values, max_val=1000000, seed=36):
+    """Generate test data for different input sizes."""
+    # Set both numpy and random seeds for complete determinism
+    np.random.seed(seed)
+    import random
+    random.seed(seed)
+
+    data = {}
+
+    for n in n_values:
+        # Generate multiple arrays for each n to get average
+        arrays = []
+        for trial in range(10):  # 10 trials per n
+            # Use numpy for deterministic random generation
+            arr = np.random.randint(1000, max_val + 1, size=n).tolist()
+            arrays.append(arr)
+        data[n] = arrays
+
+    return data
 def arr_generate(min_size, max_size, x, repeat=5):
-    """
-    生成数据并测试排序性能，多次重复取平均和标准差
-    """
+
     times_hybrid = {}
     times_traditional = {}
     counters_hybrid = {}
     counters_traditional = {}
     n = min_size
-
     while n <= max_size:
         print(f"\nArray size n={n}")
 
-        # ---- 传统归并排序 ----
         times_list, counters_list = [], []
         for _ in range(repeat):
             arr = [randint(1, x) for _ in range(n)]
